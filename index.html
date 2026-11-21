@@ -62,21 +62,6 @@
       border-bottom: 1px solid var(--border);
     }
 
-    .merchant-monogram {
-      width: 44px;
-      height: 44px;
-      border-radius: 12px;
-      background: var(--brand);
-      color: #ffffff;
-      font-size: 18px;
-      font-weight: 800;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      margin-bottom: 12px;
-      letter-spacing: -0.02em;
-    }
-
     .merchant-name {
       font-size: 20px;
       font-weight: 800;
@@ -441,7 +426,6 @@
     <article id="receiptView" class="hidden" aria-live="polite">
       <section class="receipt-card">
         <header class="receipt-header">
-          <div id="merchantMonogram" class="merchant-monogram" aria-hidden="true">R</div>
           <h1 id="merchantName" class="merchant-name"></h1>
           <p id="merchantAddress" class="merchant-meta hidden"></p>
           <p id="merchantPhone" class="merchant-meta hidden"></p>
@@ -612,8 +596,6 @@
       function renderReceipt(receipt) {
         document.title = "Receipt " + receipt.order.receiptNumber + " — " + receipt.business.name;
 
-        const initial = (receipt.business.name || "R").charAt(0).toUpperCase();
-        document.getElementById("merchantMonogram").textContent = initial;
         document.getElementById("merchantName").textContent = receipt.business.name;
 
         const addressEl = document.getElementById("merchantAddress");
