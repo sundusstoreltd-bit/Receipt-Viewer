@@ -1,1 +1,802 @@
-{"v":1,"b":{"n":"TAPin Coffee & Kitchen","a":"104 High Street, London EC1V 2NX","p":"+44 20 7946 0912","v":"GB 928 4710 33"},"o":{"n":"T-14-Sarah","d":"19 Nov 2026, 15:30","m":"Card (Contactless)"},"i":[{"n":"Australian Flat White","q":2,"p":4.75,"m":["Oat Milk (+£0.50)","Extra Hot"]},{"n":"Pain Au Chocolat","q":1,"p":3.25}],"t":{"s":12.75,"d":1,"r":20,"v":1.96,"g":11.75}}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Digital Receipt</title>
+  <!-- Zero-server decompression via lz-string CDN (v1.5.0) -->
+  <script src="https://cdn.jsdelivr.net/npm/lz-string@1.5.0/libs/lz-string.min.js"></script>
+  <style>
+    :root {
+      --bg: #f5f6f8;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --ink-secondary: #475569;
+      --ink-muted: #94a3b8;
+      --border: #e2e8f0;
+      --border-dashed: #cbd5e1;
+      --brand: #090909;
+      --paid-bg: #ecfdf5;
+      --paid-ink: #047857;
+      --paid-border: #a7f3d0;
+      --danger-bg: #fef2f2;
+      --danger-ink: #b91c1c;
+      --radius: 20px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg);
+      color: var(--ink);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 20px 14px 40px;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .shell {
+      width: 100%;
+      max-width: 440px;
+    }
+
+    .receipt-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      box-shadow: 0 12px 32px -12px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.04);
+      overflow: hidden;
+    }
+
+    .receipt-header {
+      padding: 28px 24px 20px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .merchant-monogram {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: var(--brand);
+      color: #ffffff;
+      font-size: 18px;
+      font-weight: 800;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 12px;
+      letter-spacing: -0.02em;
+    }
+
+    .merchant-name {
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: var(--ink);
+      line-height: 1.25;
+    }
+
+    .merchant-meta {
+      margin-top: 6px;
+      font-size: 13px;
+      color: var(--ink-secondary);
+      line-height: 1.5;
+    }
+
+    .merchant-vat {
+      margin-top: 3px;
+      font-size: 11.5px;
+      color: var(--ink-muted);
+      letter-spacing: 0.02em;
+    }
+
+    .hero-band {
+      padding: 20px 24px;
+      text-align: center;
+      background: #fafafa;
+      border-bottom: 1px dashed var(--border-dashed);
+    }
+
+    .paid-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 12px;
+      border-radius: 999px;
+      background: var(--paid-bg);
+      color: var(--paid-ink);
+      border: 1px solid var(--paid-border);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+    }
+
+    .paid-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10b981;
+    }
+
+    .hero-total {
+      margin-top: 10px;
+      font-size: 36px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      color: var(--ink);
+    }
+
+    .hero-subtitle {
+      margin-top: 4px;
+      font-size: 12.5px;
+      color: var(--ink-secondary);
+    }
+
+    .meta-section {
+      padding: 16px 24px;
+      border-bottom: 1px solid var(--border);
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .meta-item.right {
+      text-align: right;
+    }
+
+    .meta-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-muted);
+    }
+
+    .meta-value {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--ink);
+    }
+
+    .items-section {
+      padding: 18px 24px;
+      border-bottom: 1px dashed var(--border-dashed);
+    }
+
+    .section-heading {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--ink-muted);
+      margin-bottom: 12px;
+    }
+
+    .item-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .item-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .item-left {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .item-title {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--ink);
+      line-height: 1.35;
+    }
+
+    .item-qty {
+      display: inline-block;
+      min-width: 22px;
+      font-weight: 700;
+      color: var(--ink-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .item-unit {
+      font-size: 12px;
+      color: var(--ink-muted);
+      margin-top: 2px;
+      padding-left: 22px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .item-modifiers {
+      list-style: none;
+      margin-top: 4px;
+      padding-left: 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .item-modifiers li {
+      font-size: 12.5px;
+      color: var(--ink-secondary);
+      line-height: 1.4;
+      position: relative;
+      padding-left: 10px;
+    }
+
+    .item-modifiers li::before {
+      content: "·";
+      position: absolute;
+      left: 0;
+      color: var(--ink-muted);
+      font-weight: 700;
+    }
+
+    .item-price {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--ink);
+      white-space: nowrap;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .totals-section {
+      padding: 18px 24px 22px;
+    }
+
+    .total-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 5px 0;
+      font-size: 14px;
+      color: var(--ink-secondary);
+      font-variant-numeric: tabular-nums;
+    }
+
+    .total-row.discount {
+      color: var(--paid-ink);
+    }
+
+    .total-row.grand {
+      margin-top: 10px;
+      padding-top: 14px;
+      border-top: 2px solid var(--ink);
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .receipt-footer {
+      padding: 16px 24px 22px;
+      text-align: center;
+      background: #fafafa;
+      border-top: 1px solid var(--border);
+      font-size: 12px;
+      color: var(--ink-muted);
+      line-height: 1.5;
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .btn {
+      appearance: none;
+      border-radius: 14px;
+      height: 48px;
+      padding: 0 16px;
+      font-family: inherit;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: transform 0.12s ease, opacity 0.15s ease, background 0.15s ease;
+    }
+
+    .btn:active {
+      transform: scale(0.98);
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #ffffff;
+      border: 1px solid var(--brand);
+    }
+
+    .btn-primary:hover {
+      opacity: 0.9;
+    }
+
+    .btn-secondary {
+      background: #ffffff;
+      color: var(--ink);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: #f8fafc;
+    }
+
+    .toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(16px);
+      background: var(--brand);
+      color: #ffffff;
+      padding: 10px 18px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 600;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.2s ease, transform 0.2s ease;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+      z-index: 100;
+    }
+
+    .toast.visible {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .error-card {
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 36px 24px;
+      text-align: center;
+      box-shadow: 0 10px 28px -12px rgba(15, 23, 42, 0.1);
+    }
+
+    .error-icon {
+      width: 52px;
+      height: 52px;
+      border-radius: 16px;
+      background: var(--danger-bg);
+      color: var(--danger-ink);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 14px;
+    }
+
+    .error-title {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--ink);
+    }
+
+    .error-desc {
+      margin-top: 8px;
+      font-size: 14px;
+      color: var(--ink-secondary);
+      line-height: 1.55;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    @media print {
+      body {
+        background: #ffffff;
+        padding: 0;
+      }
+
+      .shell {
+        max-width: 100%;
+      }
+
+      .receipt-card {
+        border: none;
+        box-shadow: none;
+        border-radius: 0;
+      }
+
+      .hero-band,
+      .receipt-footer {
+        background: #ffffff;
+      }
+
+      .actions,
+      .toast {
+        display: none !important;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="shell">
+    <article id="receiptView" class="hidden" aria-live="polite">
+      <section class="receipt-card">
+        <header class="receipt-header">
+          <div id="merchantMonogram" class="merchant-monogram" aria-hidden="true">R</div>
+          <h1 id="merchantName" class="merchant-name"></h1>
+          <p id="merchantAddress" class="merchant-meta hidden"></p>
+          <p id="merchantPhone" class="merchant-meta hidden"></p>
+          <p id="merchantVat" class="merchant-vat hidden"></p>
+        </header>
+
+        <div class="hero-band">
+          <span class="paid-badge">
+            <span class="paid-dot" aria-hidden="true"></span>
+            Paid
+          </span>
+          <div id="heroTotal" class="hero-total">£0.00</div>
+          <p id="heroSubtitle" class="hero-subtitle"></p>
+        </div>
+
+        <div class="meta-section">
+          <div class="meta-item">
+            <span class="meta-label">Receipt No.</span>
+            <span id="receiptNumber" class="meta-value"></span>
+          </div>
+          <div class="meta-item right">
+            <span class="meta-label">Payment</span>
+            <span id="paymentMethod" class="meta-value"></span>
+          </div>
+          <div class="meta-item" style="grid-column: 1 / -1;">
+            <span class="meta-label">Date &amp; Time</span>
+            <span id="orderDateTime" class="meta-value"></span>
+          </div>
+        </div>
+
+        <div class="items-section">
+          <h2 class="section-heading">Items</h2>
+          <ul id="itemsList" class="item-list"></ul>
+        </div>
+
+        <div class="totals-section">
+          <div class="total-row">
+            <span>Subtotal</span>
+            <span id="subtotalValue">£0.00</span>
+          </div>
+          <div id="discountRow" class="total-row discount hidden">
+            <span>Discount</span>
+            <span id="discountValue">-£0.00</span>
+          </div>
+          <div id="vatRow" class="total-row hidden">
+            <span id="vatLabel">VAT</span>
+            <span id="vatValue">£0.00</span>
+          </div>
+          <div class="total-row grand">
+            <span>Total</span>
+            <span id="grandTotalValue">£0.00</span>
+          </div>
+        </div>
+
+        <footer class="receipt-footer">
+          <p>Thank you for your custom.</p>
+          <p style="margin-top: 3px;">Digital receipt stored directly in your QR link — no personal data stored on servers.</p>
+        </footer>
+      </section>
+
+      <div class="actions">
+        <button id="printBtn" class="btn btn-primary" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          Print / PDF
+        </button>
+        <button id="shareBtn" class="btn btn-secondary" type="button">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="18" cy="5" r="3"></circle>
+            <circle cx="6" cy="12" r="3"></circle>
+            <circle cx="18" cy="19" r="3"></circle>
+            <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line>
+            <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line>
+          </svg>
+          Share Receipt
+        </button>
+      </div>
+    </article>
+
+    <section id="errorView" class="error-card hidden" role="alert">
+      <div class="error-icon" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+      </div>
+      <h1 id="errorTitle" class="error-title">Receipt Unavailable</h1>
+      <p id="errorMessage" class="error-desc">
+        This receipt link is missing data or appears to be corrupted. Please scan the QR code on the checkout screen again.
+      </p>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const gbpFormatter = new Intl.NumberFormat("en-GB", {
+        style: "currency",
+        currency: "GBP",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      });
+
+      function formatGbp(amount) {
+        const numeric = Number(amount);
+        return gbpFormatter.format(Number.isFinite(numeric) ? numeric : 0);
+      }
+
+      function showToast(message) {
+        const toast = document.getElementById("toast");
+        toast.textContent = message;
+        toast.classList.add("visible");
+        window.clearTimeout(showToast._timer);
+        showToast._timer = window.setTimeout(function () {
+          toast.classList.remove("visible");
+        }, 2600);
+      }
+
+      function showError(title, message) {
+        document.getElementById("receiptView").classList.add("hidden");
+        document.getElementById("errorTitle").textContent = title;
+        document.getElementById("errorMessage").textContent = message;
+        document.getElementById("errorView").classList.remove("hidden");
+      }
+
+      function expandMinifiedReceipt(raw) {
+        if (!raw || typeof raw !== "object" || !raw.b || !raw.o || !Array.isArray(raw.i) || !raw.t) {
+          throw new Error("Invalid receipt schema");
+        }
+        return {
+          version: raw.v || 1,
+          business: {
+            name: String(raw.b.n || "Merchant").trim(),
+            address: raw.b.a ? String(raw.b.a).trim() : "",
+            phone: raw.b.p ? String(raw.b.p).trim() : "",
+            vatNumber: raw.b.v ? String(raw.b.v).trim() : ""
+          },
+          order: {
+            receiptNumber: String(raw.o.n || "—").trim(),
+            dateTime: String(raw.o.d || "").trim(),
+            paymentMethod: String(raw.o.m || "Card").trim()
+          },
+          items: raw.i.map(function (item) {
+            return {
+              name: String(item.n || "Item").trim(),
+              quantity: Math.max(1, Number(item.q) || 1),
+              unitPrice: Number(item.p) || 0,
+              modifiers: Array.isArray(item.m) ? item.m.map(String) : []
+            };
+          }),
+          totals: {
+            subtotal: Number(raw.t.s) || 0,
+            discount: Number(raw.t.d) || 0,
+            vatRatePercent: Number(raw.t.r) || 0,
+            vatAmount: Number(raw.t.v) || 0,
+            grandTotal: Number(raw.t.g) || 0
+          }
+        };
+      }
+
+      function renderReceipt(receipt) {
+        document.title = "Receipt " + receipt.order.receiptNumber + " — " + receipt.business.name;
+
+        const initial = (receipt.business.name || "R").charAt(0).toUpperCase();
+        document.getElementById("merchantMonogram").textContent = initial;
+        document.getElementById("merchantName").textContent = receipt.business.name;
+
+        const addressEl = document.getElementById("merchantAddress");
+        if (receipt.business.address) {
+          addressEl.textContent = receipt.business.address;
+          addressEl.classList.remove("hidden");
+        } else {
+          addressEl.classList.add("hidden");
+        }
+
+        const phoneEl = document.getElementById("merchantPhone");
+        if (receipt.business.phone) {
+          phoneEl.textContent = "Tel: " + receipt.business.phone;
+          phoneEl.classList.remove("hidden");
+        } else {
+          phoneEl.classList.add("hidden");
+        }
+
+        const vatEl = document.getElementById("merchantVat");
+        if (receipt.business.vatNumber) {
+          vatEl.textContent = "VAT Reg: " + receipt.business.vatNumber;
+          vatEl.classList.remove("hidden");
+        } else {
+          vatEl.classList.add("hidden");
+        }
+
+        document.getElementById("heroTotal").textContent = formatGbp(receipt.totals.grandTotal);
+        document.getElementById("heroSubtitle").textContent =
+          "Paid by " + receipt.order.paymentMethod + " • " + receipt.order.receiptNumber;
+
+        document.getElementById("receiptNumber").textContent = receipt.order.receiptNumber;
+        document.getElementById("paymentMethod").textContent = receipt.order.paymentMethod;
+        document.getElementById("orderDateTime").textContent = receipt.order.dateTime || "—";
+
+        const itemsList = document.getElementById("itemsList");
+        itemsList.innerHTML = "";
+        receipt.items.forEach(function (item) {
+          const li = document.createElement("li");
+          li.className = "item-row";
+
+          const left = document.createElement("div");
+          left.className = "item-left";
+
+          const title = document.createElement("div");
+          title.className = "item-title";
+          const qtySpan = document.createElement("span");
+          qtySpan.className = "item-qty";
+          qtySpan.textContent = item.quantity + "×";
+          title.appendChild(qtySpan);
+          title.appendChild(document.createTextNode(" " + item.name));
+          left.appendChild(title);
+
+          if (item.quantity > 1) {
+            const unit = document.createElement("div");
+            unit.className = "item-unit";
+            unit.textContent = formatGbp(item.unitPrice) + " each";
+            left.appendChild(unit);
+          }
+
+          if (item.modifiers.length > 0) {
+            const modUl = document.createElement("ul");
+            modUl.className = "item-modifiers";
+            item.modifiers.forEach(function (modText) {
+              const modLi = document.createElement("li");
+              modLi.textContent = modText;
+              modUl.appendChild(modLi);
+            });
+            left.appendChild(modUl);
+          }
+
+          const price = document.createElement("div");
+          price.className = "item-price";
+          price.textContent = formatGbp(item.unitPrice * item.quantity);
+
+          li.appendChild(left);
+          li.appendChild(price);
+          itemsList.appendChild(li);
+        });
+
+        document.getElementById("subtotalValue").textContent = formatGbp(receipt.totals.subtotal);
+
+        const discountRow = document.getElementById("discountRow");
+        if (receipt.totals.discount > 0.004) {
+          document.getElementById("discountValue").textContent = "-" + formatGbp(receipt.totals.discount);
+          discountRow.classList.remove("hidden");
+        } else {
+          discountRow.classList.add("hidden");
+        }
+
+        const vatRow = document.getElementById("vatRow");
+        if (receipt.totals.vatAmount > 0.004) {
+          const rateLabel = receipt.totals.vatRatePercent > 0
+            ? "VAT (" + receipt.totals.vatRatePercent + "%)"
+            : "VAT";
+          document.getElementById("vatLabel").textContent = rateLabel;
+          document.getElementById("vatValue").textContent = formatGbp(receipt.totals.vatAmount);
+          vatRow.classList.remove("hidden");
+        } else {
+          vatRow.classList.add("hidden");
+        }
+
+        document.getElementById("grandTotalValue").textContent = formatGbp(receipt.totals.grandTotal);
+
+        document.getElementById("errorView").classList.add("hidden");
+        document.getElementById("receiptView").classList.remove("hidden");
+      }
+
+      function loadFromHash() {
+        if (typeof window.LZString === "undefined") {
+          showError(
+            "Decoder Failed to Load",
+            "Could not load the lz-string library. Check your internet connection and refresh the page."
+          );
+          return;
+        }
+
+        const rawHash = (window.location.hash || "").replace(/^#/, "").trim();
+        if (!rawHash) {
+          showError(
+            "No Receipt Data Found",
+            "This page expects a compressed receipt payload in the URL hash. Scan a QR receipt generated by your EPOS terminal."
+          );
+          return;
+        }
+
+        try {
+          const jsonString = window.LZString.decompressFromEncodedURIComponent(rawHash);
+          if (!jsonString) {
+            throw new Error("Empty decompression output");
+          }
+          const parsed = JSON.parse(jsonString);
+          const receipt = expandMinifiedReceipt(parsed);
+          renderReceipt(receipt);
+        } catch (err) {
+          console.error("Failed to decode QR receipt payload:", err);
+          showError(
+            "Invalid or Corrupted Receipt",
+            "We couldn't read this receipt link. The QR code may have been truncated or modified—please rescan at the till."
+          );
+        }
+      }
+
+      document.getElementById("printBtn").addEventListener("click", function () {
+        window.print();
+      });
+
+      document.getElementById("shareBtn").addEventListener("click", async function () {
+        const shareData = {
+          title: document.title || "Digital Receipt",
+          text: "Here is my digital receipt.",
+          url: window.location.href
+        };
+
+        if (navigator.share) {
+          try {
+            await navigator.share(shareData);
+            return;
+          } catch (err) {
+            if (err && err.name === "AbortError") return;
+          }
+        }
+
+        try {
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(window.location.href);
+            showToast("Receipt link copied to clipboard");
+          } else {
+            const tempInput = document.createElement("input");
+            tempInput.value = window.location.href;
+            document.body.appendChild(tempInput);
+            tempInput.select();
+            document.execCommand("copy");
+            document.body.removeChild(tempInput);
+            showToast("Receipt link copied to clipboard");
+          }
+        } catch (copyErr) {
+          showToast("Copy the link from your browser address bar");
+        }
+      });
+
+      window.addEventListener("hashchange", loadFromHash);
+      loadFromHash();
+    })();
+  </script>
+</body>
+</html>
